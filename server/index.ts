@@ -4,6 +4,8 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { createHash } from "node:crypto";
 import multer from "multer";
 import { z } from "zod";
+import { fetchApifyJobs } from "./apify.js";
+import { fetchAshbyJobs } from "./ashby.js";
 import { submissionBlockReason } from "./approval.js";
 import { db } from "./db.js";
 import { ApplicationFlow, type ApplicationSummary } from "./application.js";
@@ -25,6 +27,69 @@ const leverSites = (process.env.LEVER_SITES ?? "")
   .split(",")
   .map((site) => site.trim())
   .filter(Boolean);
+const ashbyBoards = (process.env.ASHBY_BOARDS ?? "")
+  .split(",")
+  .map((board) => board.trim())
+  .filter(Boolean);
+const apifyToken = process.env.APIFY_API_TOKEN?.trim() ?? "";
+const apifyInputSchema = z.record(z.string(), z.unknown());
+const actorIdSchema = z.string().trim().min(1).regex(/^[A-Za-z0-9_-]+(?:~[A-Za-z0-9_-]+)?$/);
+
+function parseActorInput(variable: string): Record<string, unknown> {
+  const value = process.env[variable]?.trim();
+  if (!value) return {};
+  try {
+    const parsed: unknown = JSON.parse(value);
+    const result = apifyInputSchema.safeParse(parsed);
+    if (!result.success) throw new Error();
+    return result.data;
+  } catch {
+    throw new Error(`${variable} must contain a valid JSON object.`);
+  }
+}
+
+const apifySources: Array<{ source: string; actorId: string; input: Record<string, unknown> }> = [];
+for (const source of ["LinkedIn", "Indeed"] as const) {
+  const prefix = source.toUpperCase();
+  const actorValue = process.env[`APIFY_${prefix}_ACTOR_ID`]?.trim();
+  if (!actorValue) continue;
+  const actorId = actorIdSchema.safeParse(actorValue);
+  if (!actorId.success) throw new Error(`APIFY_${prefix}_ACTOR_ID must be an Apify actor ID or owner~actor name.`);
+  apifySources.push({
+    source,
+    actorId: actorId.data,
+    input: parseActorInput(`APIFY_${prefix}_INPUT_JSON`),
+  });
+}
+
+const otherApifySourcesSchema = z.array(z.object({
+  source: z.string().trim().min(1).max(40),
+  actorId: actorIdSchema,
+  input: apifyInputSchema.default({}),
+}));
+const otherApifyValue = process.env.APIFY_OTHER_SOURCES?.trim();
+if (otherApifyValue) {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(otherApifyValue);
+  } catch {
+    throw new Error("APIFY_OTHER_SOURCES must contain a valid JSON array.");
+  }
+  const result = otherApifySourcesSchema.safeParse(parsed);
+  if (!result.success) throw new Error("APIFY_OTHER_SOURCES entries require source, actorId, and an optional input object.");
+  apifySources.push(...result.data);
+}
+const apifyMaxItems = Number(process.env.APIFY_MAX_ITEMS ?? 500);
+const apifyMaxTotalChargeUsd = Number(process.env.APIFY_MAX_TOTAL_CHARGE_USD ?? 5);
+if (!Number.isInteger(apifyMaxItems) || apifyMaxItems < 1 || apifyMaxItems > 5000) {
+  throw new Error("APIFY_MAX_ITEMS must be a whole number from 1 to 5000.");
+}
+if (!Number.isFinite(apifyMaxTotalChargeUsd) || apifyMaxTotalChargeUsd <= 0) {
+  throw new Error("APIFY_MAX_TOTAL_CHARGE_USD must be greater than zero.");
+}
+if (apifySources.length > 0 && !apifyToken) {
+  throw new Error("APIFY_API_TOKEN is required when Apify job sources are configured.");
+}
 const applicationFlow = new ApplicationFlow();
 
 app.use(cors({ origin: "http://127.0.0.1:5173" }));
@@ -649,7 +714,7 @@ app.get("/api/dashboard", (_request, response) => {
   const latestRun = db.prepare("SELECT value FROM app_settings WHERE key = 'last_run_at'").get() as
     | { value: string }
     | undefined;
-  const configuredSources = boards.length + leverSites.length;
+  const configuredSources = boards.length + leverSites.length + ashbyBoards.length + apifySources.length;
   response.json({
     newMatchesToday: todayCount.count,
     pendingReviews: pending.count,
@@ -677,6 +742,20 @@ async function syncJobs(): Promise<number> {
     const sources = [
       ...boards.map((board) => () => fetchGreenhouseJobs(board, profile, withinHours)),
       ...leverSites.map((site) => () => fetchLeverJobs(site, profile, withinHours)),
+      ...ashbyBoards.map((board) => () => fetchAshbyJobs(board, profile, withinHours)),
+      ...apifySources.map(({ source, actorId, input }) => () =>
+        fetchApifyJobs(
+          source,
+          actorId,
+          input,
+          apifyToken,
+          profile,
+          withinHours,
+          fetch,
+          apifyMaxItems,
+          apifyMaxTotalChargeUsd,
+        ),
+      ),
     ];
     for (const loadSource of sources) {
       const jobs = await loadSource();

@@ -702,9 +702,9 @@ function App() {
                 <div className="empty-art"><span>✳</span><span>↗</span><span>·</span></div>
                 <h3>{dashboard.configuredSources === 0 ? "Connect your first job source" : "Your next match is on its way"}</h3>
                 <p>{dashboard.configuredSources === 0
-                  ? "Add public Greenhouse board slugs or Lever site names to your local setup. We’ll check for fresh roles every 30 minutes."
+                  ? "Add public Greenhouse, Lever, or Ashby boards to your local setup, or configure a permitted Apify actor for LinkedIn, Indeed, or another source. We’ll check for fresh roles every 30 minutes."
                   : dashboard.automationPaused ? "Automation is paused. Resume it when you’re ready to continue." : `We’re looking for roles posted in the last ${dashboard.postedWithinHours} hours.`}</p>
-                {dashboard.configuredSources === 0 && <span className="setup-hint">Setup: add <code>GREENHOUSE_BOARDS=slug</code> or <code>LEVER_SITES=slug</code> to .env</span>}
+                {dashboard.configuredSources === 0 && <span className="setup-hint">Setup: configure <code>GREENHOUSE_BOARDS</code>, <code>LEVER_SITES</code>, <code>ASHBY_BOARDS</code>, or Apify settings in .env</span>}
                 {dashboard.configuredSources > 0 && <button className="button button-outline empty-refresh" onClick={syncNow} disabled={syncing || dashboard.automationPaused}>{syncing ? "Searching…" : "Check again"}</button>}
               </div>
             )}

@@ -22,16 +22,29 @@ On first use, upload a PDF or DOCX resume, optionally upload a cover-letter temp
 
 ## Job sources and scoring
 
-The two initial pluggable connectors use public Greenhouse and Lever feeds:
+Pluggable connectors use public Greenhouse, Lever, and Ashby job-board feeds. LinkedIn, Indeed, and additional sources can be connected through user-configured Apify actors:
 
 ```dotenv
 GREENHOUSE_BOARDS=example-company,another-company
 LEVER_SITES=example-company
+ASHBY_BOARDS=example-company
 POSTED_WITHIN_HOURS=24
 SEARCH_INTERVAL_MINUTES=30
+
+# Optional: set only if using Apify. Keep the token private in your local .env.
+APIFY_API_TOKEN=
+APIFY_LINKEDIN_ACTOR_ID=owner~linkedin-jobs-actor
+APIFY_LINKEDIN_INPUT_JSON={"searchQuery":"Product Designer"}
+APIFY_INDEED_ACTOR_ID=owner~indeed-jobs-actor
+APIFY_INDEED_INPUT_JSON={"query":"Product Designer"}
+
+# Optional additional Apify-compatible sources:
+APIFY_OTHER_SOURCES=[{"source":"ZipRecruiter","actorId":"owner~jobs-actor","input":{"query":"Product Designer"}}]
+APIFY_MAX_ITEMS=500
+APIFY_MAX_TOTAL_CHARGE_USD=5
 ```
 
-Use board/site identifiers you are permitted to monitor. Requests are sequential and low-frequency. Greenhouse freshness uses `updated_at`; Lever freshness uses `createdAt`. Matches are deduplicated by normalized company, title, and location, then sorted newest first. Failed runs are retried up to three times and logged without logging profile or resume content.
+Use board/site identifiers you are permitted to monitor. Ashby board names are the final path segment of the company's `jobs.ashbyhq.com/<board>` URL. Apify actor IDs and input objects must match the specific actor's documentation; the adapter recognizes common job title, company, location, URL, description, and publication-date field names. It skips records without a parseable publication date and fails clearly if an actor returns no recognizable dated records. Apify runs are capped by `APIFY_MAX_ITEMS` and `APIFY_MAX_TOTAL_CHARGE_USD` per actor invocation. Check the actor's pricing and the applicable site's terms before enabling it. An Apify actor is not an endorsement or guarantee that its collection method is permitted by a job site's terms. Requests run sequentially. Greenhouse freshness uses `updated_at` (a proxy); Lever uses `createdAt`; Ashby uses `publishedAt`; Apify sources use the publication-date field returned by the configured actor. Matches are deduplicated by normalized company, title, and location, then sorted newest first. Failed runs are retried up to three times and logged without logging profile, resume content, or API tokens.
 
 The 0–10 fit score uses title overlap, resume/profile skill overlap, location/work style, and disclosed or title-inferred experience requirements. Only scores **above 7** are surfaced. This is a conservative keyword heuristic, not a guarantee of qualification; review the full posting and potential gaps yourself.
 
