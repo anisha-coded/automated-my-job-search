@@ -1,6 +1,6 @@
-# Fieldnote
+# getThatjob
 
-Fieldnote is a local-first job search dashboard. It discovers recent public ATS postings, creates source-grounded application drafts, and keeps every review decision in one place. The application flow is gated: the user must approve the materials, inspect the final form summary, and separately confirm submission.
+getThatjob is a local-first job search dashboard. It discovers recent public ATS postings, creates source-grounded application drafts, and keeps every review decision in one place. The application flow is gated: the user must approve the materials, inspect the final form summary, and separately confirm submission.
 
 ## Requirements and setup
 

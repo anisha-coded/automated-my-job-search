@@ -574,7 +574,7 @@ function App() {
   if (!profileState?.hasResume || editingProfile) {
     return (
       <main className={profileState?.hasResume ? "editor-screen" : "onboarding-screen"}>
-        <a className="brand" href="/" aria-label="Fieldnote home"><span className="brand-mark">f.</span><span>fieldnote</span></a>
+        <a className="brand" href="/" aria-label="getThatjob home"><span className="brand-mark">g.</span><span>getThatjob</span></a>
         <div className="editor-card">
           <ProfileForm
             initial={profileState?.profile ?? {
@@ -596,7 +596,7 @@ function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <a className="brand" href="/" aria-label="Fieldnote home"><span className="brand-mark">f.</span><span>fieldnote</span></a>
+        <a className="brand" href="/" aria-label="getThatjob home"><span className="brand-mark">g.</span><span>getThatjob</span></a>
         <p className="nav-label">WORKSPACE</p>
         <a className="nav-item active" href="#matches"><span className="nav-icon">⌂</span> Overview</a>
         <a className="nav-item" href="#matches"><span className="nav-icon">◷</span> New matches <span className="nav-count">{dashboard.pendingReviews}</span></a>
